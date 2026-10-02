@@ -9,7 +9,9 @@
 #>
 param(
     [string] $Deno,
-    [string] $WinSWVersion = 'v2.12.0'
+    [string] $WinSWVersion = 'v2.12.0',
+    # SHA256 of WinSW-x64.exe for $WinSWVersion; update both together.
+    [string] $WinSWSha256 = '05B82D46AD331CC16BDC00DE5C6332C1EF818DF8CEEFCD49C726553209B3A0DA'
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
@@ -33,6 +35,11 @@ if (-not (Test-Path $winsw)) {
     $url = "https://github.com/winsw/winsw/releases/download/$WinSWVersion/WinSW-x64.exe"
     Write-Host "Downloading $url"
     Invoke-WebRequest $url -OutFile $winsw
+}
+$hash = (Get-FileHash -Algorithm SHA256 $winsw).Hash
+if ($hash -ne $WinSWSha256) {
+    Remove-Item -Force $winsw
+    throw "WinSW download has SHA256 $hash, expected $WinSWSha256"
 }
 
 $stage = Join-Path $root 'dist\RoonStreamer'

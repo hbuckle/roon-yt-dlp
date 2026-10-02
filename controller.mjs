@@ -4,8 +4,8 @@ import { startStream, stopStream } from './stream-server.mjs';
 import { downloadAudio } from './ytdlp.mjs';
 import * as cache from './cache.mjs';
 
-// Play/stop logic shared by the service (web page/API) and the console test
-// app. Only one play runs at a time: a new play or a stop cancels the one in
+// Play/stop logic for the service's web page and API. Only one play runs at a
+// time: a new play or a stop cancels the one in
 // progress (killing yt-dlp if it is still downloading) and waits for it to
 // finish before going on.
 
@@ -51,12 +51,20 @@ async function run(title, work) {
     if (!roon.paired) throw new Error('not paired with a Roon Core: enable the extension in Roon > Settings > Extensions');
     if (!roon.zone) throw new Error('no zone selected: choose one on the control page or in the extension settings in Roon');
 
-    await cancelJob();
+    // Take over _job before awaiting anything, so a play that arrives while
+    // this one is still cancelling its predecessor cancels this one in turn,
+    // rather than both running.
+    const previous = _job;
     const abort = new AbortController();
     const job = { abort, done: null };
     _job = job;
     job.done = (async () => {
         try {
+            if (previous) {
+                previous.abort.abort();
+                await previous.done.catch(() => { });
+            }
+            if (abort.signal.aborted) return;
             const { url, icon } = await work(abort.signal, (s, t) => setStatus(s, t));
             if (abort.signal.aborted) return;
             _log(`Playing "${_status.title}" from ${url}`);

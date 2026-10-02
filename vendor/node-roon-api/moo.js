@@ -88,7 +88,7 @@ Moo.prototype.parse = function(buf) {
     if ((typeof ArrayBuffer != 'undefined') && (buf instanceof (ArrayBuffer))) {
         // convert to Node Buffer
         var view = new Uint8Array(buf);
-        var buf = new Buffer(buf.byteLength);
+        var buf = Buffer.alloc(buf.byteLength);
         for (var i = 0; i < buf.length; ++i) buf[i] = view[i];
     }
 

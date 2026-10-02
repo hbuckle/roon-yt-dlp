@@ -3,8 +3,7 @@
 var util    = require("util"),
     events  = require('events'),
     dgram   = require('dgram'),
-    IP      = require('ip'),
-    uuid    = require('node-uuid'),
+    crypto  = require('crypto'),
     os      = require('os');
 
 var SOOD_PORT         = 9003;
@@ -70,12 +69,18 @@ function _parse(buf, minfo) {
     }
 }
 
+// IPv4 broadcast address of the subnet, e.g. 192.168.1.20/255.255.255.0 -> 192.168.1.255
+function _broadcast_address(ip, netmask) {
+    var a = ip.split('.'), m = netmask.split('.');
+    return a.map((o, i) => (o | (~m[i] & 255)) & 255).join('.');
+}
+
 Sood.prototype.query = function(msg) {
     if (!msg['_tid']) {
-        msg['_tid'] =  uuid.v4(); 
+        msg['_tid'] = crypto.randomUUID();
     }
     
-    var buf = new Buffer(65535);
+    var buf = Buffer.alloc(65535);
     buf.write("SOOD");
     buf[4] = 2;
     buf.write("Q", 5);
@@ -199,7 +204,7 @@ Sood.prototype._listen_iface = function(ip, netmask, ifacename) {
 //        this.logger.log(`SOOD: new sock: send ${ip}/${ifacename}`);
         new_iface = true;
 	iface.send_sock = dgram.createSocket({ type: 'udp4' });
-        iface.broadcast = IP.subnet(ip, netmask).broadcastAddress;
+        iface.broadcast = _broadcast_address(ip, netmask);
 	iface.send_sock.on('error', (err) => {
 //	    this.logger.log(`server error ${ip}`, err);
 	    iface.send_sock.close();

@@ -1,5 +1,5 @@
-// The control page served at / by service.mjs. Kept as a string module so the
-// esbuild bundle stays a single file.
+// The control page served at / by service.mjs. Kept as a string module so
+// `deno compile` embeds it without extra --include flags.
 export const CONTROL_PAGE = `<!doctype html>
 <html lang="en">
 <head>

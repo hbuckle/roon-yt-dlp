@@ -12,6 +12,7 @@
     Built with `deno compile`, with its permissions fixed at build time: file
     access only to C:\ProgramData\RoonStreamer, plus network, environment,
     OS network info and subprocesses (ffmpeg/ffprobe/yt-dlp/taskkill).
+    Subprocesses aren't sandboxed, so this limits the Deno code only.
   -->
   <executable>%BASE%\roon-streamer.exe</executable>
 
@@ -37,6 +38,19 @@
   <!-- Download cache size limit in MB (default 2048); 0 turns caching off. -->
   <!-- <env name="ROON_STREAMER_CACHE_MB" value="2048"/> -->
 
+  <!--
+    Address Roon fetches the audio from. The default, 127.0.0.1, only works
+    when this runs on the Roon Server machine; otherwise set this machine's
+    LAN IP.
+  -->
+  <!-- <env name="ROON_STREAMER_HOST" value="192.168.1.20"/> -->
+
+  <!--
+    Extra host names (comma-separated) the control API accepts, e.g. a DNS
+    alias. IP addresses, localhost and the computer name always work.
+  -->
+  <!-- <env name="ROON_STREAMER_ALLOWED_HOSTS" value="music.home.lan"/> -->
+
   <startmode>Automatic</startmode>
   <!-- Start after boot has settled, so the network and Roon Server are up. -->
   <delayedAutoStart>true</delayedAutoStart>
@@ -56,8 +70,14 @@
   </log>
 
   <!--
-    Runs as LocalSystem by default. To use a less privileged account, add e.g.
-    <serviceaccount><username>NT AUTHORITY\LocalService</username></serviceaccount>
-    and give that account write access to %ProgramData%\RoonStreamer.
+    Runs as LocalService rather than WinSW's default, LocalSystem: yt-dlp and
+    ffmpeg parse content from the internet, and the Deno sandbox doesn't
+    restrict subprocesses. install.ps1 gives LocalService write access to
+    %ProgramData%\RoonStreamer. ffmpeg, ffprobe and yt-dlp must be readable
+    and runnable by it (anything on the system PATH under Program Files is).
   -->
+  <serviceaccount>
+    <domain>NT AUTHORITY</domain>
+    <user>LocalService</user>
+  </serviceaccount>
 </service>

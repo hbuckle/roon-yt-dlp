@@ -4,9 +4,9 @@ Plays the audio from YouTube (and other sites yt-dlp supports) in a Roon zone. I
 
 ## Requirements
 
-- Windows 10/11 or Windows Server, on the same machine as Roon Server.
+- Windows 10/11 or Windows Server, on the same network as Roon Server. If it isn't the Roon Server machine itself, set `ROON_STREAMER_HOST` in `RoonStreamer.xml` (or `streamHost` in `settings.json`) to this machine's LAN IP: by default Roon is told to fetch the audio from `127.0.0.1`.
 - **ffmpeg, ffprobe and yt-dlp.** These are not included. Either:
-  - put them on the **system** PATH (System Properties > Environment Variables > System variables). The service runs as LocalSystem, which does not see your user PATH, so a `winget install` done as a normal user usually is not enough; or
+  - put them on the **system** PATH (System Properties > Environment Variables > System variables). The service runs as LocalService, which does not see your user PATH or files in your user profile, so a `winget install` done as a normal user usually is not enough; or
   - set their full paths in `RoonStreamer.xml` (the `FFMPEG_PATH`, `FFPROBE_PATH` and `YTDLP_PATH` entries).
 
 ## Install
@@ -16,14 +16,14 @@ Plays the audio from YouTube (and other sites yt-dlp supports) in a Roon zone. I
    ```powershell
    powershell -ExecutionPolicy Bypass -File .\install.ps1
    ```
-   This installs to `C:\Program Files\RoonStreamer`, starts the service, and adds firewall rules. Use `-InstallDir` or `-Port` to change those defaults. Running it again upgrades in place.
-3. In Roon, go to **Settings > Extensions**. Enable **Roon Connect Stream Example**, open its **Settings**, and choose the zone to play in.
+   This installs to `C:\Program Files\RoonStreamer`, gives the LocalService account write access to `C:\ProgramData\RoonStreamer`, starts the service, and adds firewall rules that allow the local subnet only. Use `-InstallDir` or `-Port` to change those defaults. Running it again upgrades in place.
+3. In Roon, go to **Settings > Extensions**. Enable **Roon Connect yt-dlp**, open its **Settings**, and choose the zone to play in.
 
 ## Use
 
 Open `http://<roon-server>:8081/` from any device on your network. Paste a URL and press **Play**; **Stop** ends playback. The audio downloads first, which can take a few seconds for a long video.
 
-The same actions are available as a JSON API, for scripts or phone shortcuts:
+The same actions are available as a JSON API, for scripts or phone shortcuts. POSTs must send `Content-Type: application/json`, and must be addressed to this machine by IP address, `localhost` or its computer name; add any other name (such as a DNS alias) to `allowedHosts`. This stops other web pages opened on your network from controlling it.
 
 ```
 POST /api/play    {"url": "https://www.youtube.com/watch?v=...", "zone_id": "..."}   (zone_id optional)
@@ -42,7 +42,7 @@ Choosing a zone on the page or with `/api/zone` changes the same setting as the 
 | Roon pairing (`config.json`), optional `settings.json`, temp files | `C:\ProgramData\RoonStreamer` |
 | Logs | `C:\ProgramData\RoonStreamer\logs` |
 
-Optional `settings.json` keys: `httpPort`, `streamHost`, `ffmpegPath`, `ffprobePath`, `ytdlpPath`, `tempDir`, `cacheDir`, `cacheMaxMB`. Environment variables set in `RoonStreamer.xml` take priority over it. The service can only read and write files under `C:\ProgramData\RoonStreamer` (a Deno sandbox rule fixed when it's built), so `tempDir` and `cacheDir` must stay inside that folder.
+Optional `settings.json` keys: `httpPort`, `streamHost`, `allowedHosts` (an array), `ffmpegPath`, `ffprobePath`, `ytdlpPath`, `tempDir`, `cacheDir`, `cacheMaxMB`. Environment variables set in `RoonStreamer.xml` take priority over it. The service's own code can only read and write files under `C:\ProgramData\RoonStreamer` (a Deno sandbox rule fixed when it's built), so `tempDir` and `cacheDir` must stay inside that folder. The sandbox doesn't apply to ffmpeg, ffprobe and yt-dlp, which run with the full rights of the LocalService account.
 
 ## Download cache
 

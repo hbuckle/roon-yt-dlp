@@ -36,6 +36,10 @@ function load() {
         ffmpegPath:  env.FFMPEG_PATH        || file.ffmpegPath  || 'ffmpeg',
         ffprobePath: env.FFPROBE_PATH       || file.ffprobePath || 'ffprobe',
         ytdlpPath:   env.YTDLP_PATH         || file.ytdlpPath   || 'yt-dlp',
+        // Extra host names (e.g. a DNS alias) the control API accepts in the
+        // Host header, besides IP addresses, localhost and the computer name.
+        allowedHosts: (env.ROON_STREAMER_ALLOWED_HOSTS?.split(',') || file.allowedHosts || [])
+            .map((h) => h.trim().toLowerCase()).filter(Boolean),
     };
 }
 

@@ -13,7 +13,9 @@ Deno can't install `github:` dependencies, and these packages are only published
 Changes from upstream:
 - Only runtime files are included: docs, CI files and build scripts are left out, and so is `node-roon-api`'s `deploy_key.enc`.
 - Each `package.json` has `"type": "commonjs"` added. Deno treats local (non-npm) `.js` files without it as ES modules, and these are CommonJS.
+- `node-roon-api/sood.js` no longer uses the `ip` package (unmaintained, CVE-2024-29415) or the deprecated `node-uuid`: the subnet broadcast address is computed inline and `_tid` comes from `crypto.randomUUID()`. Both are removed from its `package.json`.
+- `new Buffer(n)` (deprecated, DEP0005) is replaced with `Buffer.alloc(n)` in `sood.js` and `moo.js`.
 
-Deno doesn't install the dependencies of `file:` packages. `node-roon-api` needs `ip`, `node-uuid` and `ws`, so they are listed in the root `package.json` instead.
+Deno doesn't install the dependencies of `file:` packages. `node-roon-api` needs `ws`, so it is listed in the root `package.json` instead.
 
-To update a package, copy the files again from the new commit, re-add `"type": "commonjs"`, and update the table above.
+To update a package, copy the files again from the new commit, re-apply the changes above, and update the table above.

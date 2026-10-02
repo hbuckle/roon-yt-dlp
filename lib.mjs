@@ -73,7 +73,7 @@ function _doevent(ev) {
     if (ev == "ready_to_pair") {
         svc_status.set_status("Ready to pair", true);
     } else if (ev == "initializing") {
-        svc_status.set_status("Intializing...", false);
+        svc_status.set_status("Initializing...", false);
     } else if (ev == "preparing") {
         svc_status.set_status("Preparing...", false);
     } else if (ev == "stopped") {
@@ -102,8 +102,6 @@ export function init({
         core_paired: function (_core) {
             _log("Paired");
             _v.core = _core;
-            _v.current_zone_id = _v.roon.load_config("current_zone_id");
-            _v.current_output_id = _v.roon.load_config("current_zone_id");
             _core.services.RoonApiTransport.subscribe_zones((response, msg) => {
                 if (response == "Subscribed") {
                     _v.zones = {};
@@ -125,9 +123,10 @@ export function init({
         },
         core_unpaired: function (_core) {
             _log("Pairing removed");
+            delete _v.core;
+            delete _v.zones;
+            delete _v.session;
             _updateSettings();
-            delete (_v.core = null);
-            delete (_v.zones);
         }
     });
 

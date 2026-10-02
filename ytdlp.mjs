@@ -38,6 +38,8 @@ export async function downloadAudio(url, { logger, signal, cache = false } = {})
     fs.mkdirSync(dir, { recursive: true });
 
     const args = [
+        // ignore yt-dlp.conf files, which could add options such as --exec
+        '--ignore-config',
         '--no-playlist',
         '--no-progress',
         '-f', 'bestaudio[acodec^=mp4a]',

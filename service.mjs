@@ -23,11 +23,57 @@ async function readJson(req) {
         body += chunk;
         if (body.length > 64 * 1024) throw new Error('request too large');
     }
-    return body ? JSON.parse(body) : {};
+    const json = body ? JSON.parse(body) : {};
+    if (typeof json != 'object' || json === null || Array.isArray(json)) throw new Error('body must be a JSON object');
+    return json;
+}
+
+// Whether a Host header names this machine: an IP address, localhost, the
+// computer name (bare or with a domain), or one of config.allowedHosts.
+function isOwnHost(host) {
+    let name;
+    try {
+        name = new URL(`http://${host}`).hostname.toLowerCase();
+    } catch (e) {
+        return false;
+    }
+    const computer = (process.env.COMPUTERNAME || '').toLowerCase();
+    return /^\d{1,3}(\.\d{1,3}){3}$/.test(name) || name.startsWith('[')
+        || name == 'localhost'
+        || (computer && (name == computer || name.startsWith(computer + '.')))
+        || config.allowedHosts.includes(name);
+}
+
+// Web pages can send POSTs to LAN addresses. A text/plain body skips the CORS
+// preflight, and DNS rebinding makes the request look same-origin. So a POST
+// must be JSON (browsers then send a preflight, which fails because no CORS
+// headers are sent), from this server's own page if it comes from a browser,
+// and to a Host that is this machine. Returns [status, error], or null if the
+// request is OK.
+function rejectPost(req) {
+    if (!isOwnHost(req.headers.host || ''))
+        return [403, `host not allowed: ${req.headers.host} (add it to allowedHosts)`];
+    const origin = req.headers.origin;
+    if (origin) {
+        let originHost = null;
+        try { originHost = new URL(origin).host; } catch (e) { }
+        if (originHost != req.headers.host) return [403, `cross-origin request from ${origin}`];
+    }
+    if (!/^application\/json\s*(;|$)/i.test(req.headers['content-type'] || ''))
+        return [415, 'Content-Type must be application/json'];
+    return null;
 }
 
 async function routes(req, res) {
     const url = new URL(req.url, 'http://localhost');
+
+    if (req.method == 'POST' && url.pathname.startsWith('/api/')) {
+        const rejected = rejectPost(req);
+        if (rejected) {
+            sendJson(res, rejected[0], { error: rejected[1] });
+            return true;
+        }
+    }
 
     if (req.method == 'GET' && url.pathname == '/') {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
@@ -116,7 +162,6 @@ async function main() {
             display_version: '1.0.0',
             publisher: 'hbuckle',
             email: 'h.buckle@outlook.com',
-            website: 'https://github.com/RoonLabs/roon-connect-stream-example',
         },
     });
     controller.init({ logger, name: 'Roon Connect yt-dlp' });
