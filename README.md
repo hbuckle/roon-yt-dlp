@@ -7,7 +7,7 @@ A Roon extension that plays the audio from YouTube (and other sites [yt-dlp](htt
 
 yt-dlp downloads only the audio, and only AAC, because Roon can't play Opus. A URL with no AAC audio fails with an error from yt-dlp. Playlist URLs play only the single video. Downloads are cached (see [packaging/README-service.md](packaging/README-service.md#download-cache)).
 
-The audio is remuxed with ffmpeg, not transcoded, into a temp file. That file is served over HTTP with an exact `Content-Length` and support for Range requests, on the same port as the control page, at a new URL for every play (Roon caches downloads by URL, including failed attempts). Roon can open the stream URL more than once, for example a probe connection and then the playback connection, and every connection reads the same complete file. The media title and thumbnail are shown in Roon.
+yt-dlp already writes YouTube audio as an M4A with its index at the start, and that file is served as it is. Anything else is first remuxed with ffmpeg, not transcoded, into a temp file. The file is served over HTTP with an exact `Content-Length` and support for Range requests, on the same port as the control page, at a new URL for every play (Roon caches downloads by URL, including failed attempts). Roon can open the stream URL more than once, for example a probe connection and then the playback connection, and every connection reads the same complete file. The media title and thumbnail are shown in Roon.
 
 `ffprobe` detects the input codec, and the container and `Content-Type` are chosen to carry that codec unchanged:
 

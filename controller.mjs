@@ -100,7 +100,7 @@ export function playUrl(url) {
             _log(`Cache hit: "${cached.title}"`);
             update('preparing', cached.title);
             return {
-                url:  await startStream({ input: cached.file, logger: _log }),
+                url:  await startStream({ input: cached.file, keepInput: true, logger: _log }),
                 icon: cached.thumbnail,
             };
         }
@@ -112,18 +112,20 @@ export function playUrl(url) {
         try {
             if (signal.aborted) throw new Error('cancelled');
             update('preparing', download.title);
+            // Without the cache, the stream server owns the download and
+            // deletes it when it's done with it.
             return {
-                url:  await startStream({ input: download.file, logger: _log }),
+                url:  await startStream({ input: download.file, keepInput: useCache, logger: _log }),
                 icon: download.thumbnail,
             };
         } catch (err) {
             // e.g. a codec that can't be streamed: no point keeping it
             if (useCache && !signal.aborted) cache.remove(download.file);
+            else if (!useCache) fs.rmSync(download.file, { force: true });
             throw err;
         } finally {
-            // startStream has already remuxed it into its own temp file
-            if (useCache) cache.enforceLimit();
-            else fs.rmSync(download.file, { force: true });
+            // never evict the file that may now be playing
+            if (useCache) cache.enforceLimit(download.file);
         }
     });
 }

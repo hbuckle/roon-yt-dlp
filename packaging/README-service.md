@@ -46,13 +46,15 @@ Optional `settings.json` keys: `httpPort`, `streamHost`, `allowedHosts` (an arra
 
 ## Download cache
 
-Downloaded audio is kept in `C:\ProgramData\RoonStreamer\cache`, so playing the same URL again starts almost at once. A different URL for the same video (for example `youtu.be/...` and `youtube.com/watch?v=...`) is recognised too; it still takes a second or two to look up, but doesn't download again.
+Downloaded audio is kept in `C:\ProgramData\RoonStreamer\cache`, so playing the same URL again starts almost at once. A different URL for the same video is recognised too. For YouTube URLs (`youtu.be/...`, `youtube.com/watch?v=...`, `/shorts/...`) that's instant; for other sites it takes a second or two for yt-dlp to look it up, but doesn't download again.
 
-The cache is limited to `cacheMaxMB` (default 2048 MB). When a download takes it over that, the least recently played files are deleted until it fits again. A single file bigger than the limit isn't kept. Set `cacheMaxMB` to `0` to turn caching off, or set the `ROON_STREAMER_CACHE_MB` environment variable in `RoonStreamer.xml`. To clear the cache, stop the service and delete the folder. If you change the port, re-run `install.ps1 -Port <port>` so the firewall rule matches.
+The cache is limited to `cacheMaxMB` (default 2048 MB). When a download takes it over that, the least recently played files are deleted until it fits again. A single file bigger than the limit is kept only until the next download. Set `cacheMaxMB` to `0` to turn caching off, or set the `ROON_STREAMER_CACHE_MB` environment variable in `RoonStreamer.xml`. To clear the cache, stop the service and delete the folder. If you change the port, re-run `install.ps1 -Port <port>` so the firewall rule matches.
 
 ## Keeping yt-dlp working
 
 Sites change often, and an old yt-dlp eventually stops working with them. Update it regularly with `yt-dlp -U`, run as an administrator if it's installed under Program Files.
+
+The single-file `yt-dlp.exe` unpacks itself every time it runs, which adds a second or so before each download starts. A yt-dlp installed with `pip` (or an unpacked build, if the release page offers one) starts faster; point `YTDLP_PATH` at it.
 
 ## Uninstall
 

@@ -60,24 +60,46 @@ function removeFile(name) {
     }
 }
 
+// The video ID in the common YouTube URL forms, or null.
+function youtubeId(url) {
+    let u;
+    try {
+        u = new URL(url);
+    } catch (e) {
+        return null;
+    }
+    const host = u.hostname.toLowerCase().replace(/^(www|m|music)\./, '');
+    let id = null;
+    if (host == 'youtu.be') id = u.pathname.slice(1);
+    else if (host == 'youtube.com')
+        id = u.pathname == '/watch' ? u.searchParams.get('v') : /^\/(shorts|live|embed)\/([^/]+)/.exec(u.pathname)?.[2];
+    return /^[A-Za-z0-9_-]{11}$/.test(id || '') ? id : null;
+}
+
 // Returns { file, title, thumbnail } for a URL that was cached before, and
-// marks it as just used; otherwise null.
+// marks it as just used; otherwise null. A YouTube URL also finds the video
+// when it was cached under a different URL (e.g. youtu.be/... and
+// youtube.com/watch?v=...), from the file name yt-dlp gave it, so yt-dlp
+// doesn't need to run.
 export function lookup(url) {
     if (!enabled()) return null;
     const entries = index().entries;
-    for (const [name, e] of Object.entries(entries)) {
-        if (!e.urls.includes(url)) continue;
-        const file = path.join(config.cacheDir, name);
-        if (!fs.existsSync(file)) {
-            delete entries[name];
-            save();
-            return null;
-        }
-        e.lastUsed = Date.now();
+    let name = Object.keys(entries).find((n) => entries[n].urls.includes(url));
+    const id = !name && youtubeId(url);
+    if (id) name = Object.keys(entries).find((n) => n.startsWith(`Youtube-${id}.`));
+    if (!name) return null;
+
+    const e = entries[name];
+    const file = path.join(config.cacheDir, name);
+    if (!fs.existsSync(file)) {
+        delete entries[name];
         save();
-        return { file, title: e.title, thumbnail: e.thumbnail };
+        return null;
     }
-    return null;
+    e.lastUsed = Date.now();
+    if (!e.urls.includes(url)) e.urls.push(url);
+    save();
+    return { file, title: e.title, thumbnail: e.thumbnail };
 }
 
 // Records a download that yt-dlp wrote into the cache directory (or found
@@ -102,14 +124,18 @@ export function remove(file) {
     save();
 }
 
-// Deletes the least recently used files until the cache fits in cacheMaxMB.
-export function enforceLimit() {
+// Deletes the least recently used files until the cache fits in cacheMaxMB,
+// except `keepFile` (the one playing), which goes on a later call if it alone
+// is over the limit.
+export function enforceLimit(keepFile) {
     const entries = index().entries;
     const limit = config.cacheMaxMB * 1024 * 1024;
+    const keep = keepFile && path.basename(keepFile);
     let total = Object.values(entries).reduce((sum, e) => sum + e.size, 0);
     const oldestFirst = Object.entries(entries).sort((a, b) => a[1].lastUsed - b[1].lastUsed);
     for (const [name, e] of oldestFirst) {
         if (total <= limit) break;
+        if (name == keep) continue;
         _log(`Cache over ${config.cacheMaxMB} MB: removing "${e.title}" (${name})`);
         delete entries[name];
         removeFile(name);

@@ -7,9 +7,10 @@ import { config } from './config.mjs';
 
 // Roon may open the stream URL more than once (e.g. a probe connection
 // followed by the real playback connection), so a single-client server such
-// as `ffmpeg -listen 1` dies on the first disconnect. Instead, the input is
-// remuxed (not transcoded) to a temp file up front, and that file is served
-// with an exact Content-Length and Range support to every connection.
+// as `ffmpeg -listen 1` dies on the first disconnect. Instead, a complete
+// file is served with an exact Content-Length and Range support to every
+// connection: the input itself if it's already a suitable MP4, otherwise a
+// temp file it is remuxed (not transcoded) to up front.
 //
 // One HTTP server runs for the life of the process. It serves the current
 // stream, and hands every other request to the `routes` handler (the control
@@ -67,6 +68,37 @@ async function remux(input, fmt, output) {
         '-f', fmt.format,
         output,
     ]);
+}
+
+// Whether `file` is an MP4 with its index (moov box) before the audio data
+// (mdat box), as Roon needs and as yt-dlp writes when it runs ffmpeg itself
+// (+faststart). Such a file can be served as it is, without a remux.
+function moovBeforeMdat(file) {
+    let fd;
+    try {
+        fd = fs.openSync(file, 'r');
+        const size = fs.fstatSync(fd).size;
+        const header = Buffer.alloc(16);
+        for (let pos = 0; pos + 8 <= size;) {
+            const n = fs.readSync(fd, header, 0, 16, pos);
+            const type = header.toString('latin1', 4, 8);
+            if (pos == 0 && type != 'ftyp') return false;
+            if (type == 'moov') return true;
+            if (type == 'mdat') return false;
+            let boxSize = header.readUInt32BE(0);
+            if (boxSize == 1) {
+                if (n < 16) return false;
+                boxSize = Number(header.readBigUInt64BE(8));
+            }
+            if (boxSize < 8) return false;    // includes 0: box runs to end of file
+            pos += boxSize;
+        }
+        return false;
+    } catch (e) {
+        return false;
+    } finally {
+        if (fd !== undefined) fs.closeSync(fd);
+    }
 }
 
 // Parses a single "bytes=start-end" range; returns null for no/unsupported
@@ -184,38 +216,56 @@ export async function closeServer() {
     }));
 }
 
-// Remuxes `input` and makes it the current stream. Returns the stream's full
-// URL, which is unique per call: Roon caches downloads by URL (including
-// failed attempts), and the content behind a given URL never changes.
-export async function startStream({ input, logger }) {
+// Makes `input` the current stream: served as it is if it's already an MP4
+// with its index first, otherwise remuxed to a temp file. Returns the
+// stream's full URL, which is unique per call: Roon caches downloads by URL
+// (including failed attempts), and the content behind a given URL never
+// changes.
+//
+// With `keepInput: false` the stream server takes ownership of `input` and
+// deletes it once it's no longer needed, including when this throws.
+export async function startStream({ input, keepInput = true, logger }) {
     if (logger) _log = logger;
     await stopStream();
 
-    const codec = await probeCodec(input);
-    const fmt = formatForCodec(codec);
-    const id = Date.now().toString(36);
-    fs.mkdirSync(config.tempDir, { recursive: true });
-    const file = path.join(config.tempDir, `stream-${id}.${fmt.ext}`);
-    _log(`Input codec ${codec}: remuxing to ${fmt.format} (${fmt.contentType}) without transcoding`);
     try {
-        await remux(input, fmt, file);
-    } catch (err) {
-        removeFile(file);
-        throw new Error(`ffmpeg remux failed: ${err.stderr?.trim() || err.message}`);
-    }
-    const stat = fs.statSync(file);
-    _log(`Remuxed ${stat.size} bytes to ${file}`);
+        const codec = await probeCodec(input);
+        const fmt = formatForCodec(codec);
+        const id = Date.now().toString(36);
+        let file = input;
+        let removeOnStop = !keepInput;
+        if (fmt === M4A && moovBeforeMdat(input)) {
+            _log(`Input codec ${codec}, already MP4 with its index first: serving ${input} as is`);
+        } else {
+            fs.mkdirSync(config.tempDir, { recursive: true });
+            file = path.join(config.tempDir, `stream-${id}.${fmt.ext}`);
+            _log(`Input codec ${codec}: remuxing to ${fmt.format} (${fmt.contentType}) without transcoding`);
+            try {
+                await remux(input, fmt, file);
+            } catch (err) {
+                removeFile(file);
+                throw new Error(`ffmpeg remux failed: ${err.stderr?.trim() || err.message}`);
+            }
+            if (!keepInput) removeFile(input);
+            removeOnStop = true;
+        }
+        const stat = fs.statSync(file);
+        _log(`Serving ${stat.size} bytes from ${file}`);
 
-    _current = { urlPath: `/stream-${id}.${fmt.ext}`, file, size: stat.size, mtime: stat.mtime, id, fmt };
-    return `http://${config.streamHost}:${config.httpPort}${_current.urlPath}`;
+        _current = { urlPath: `/stream-${id}.${fmt.ext}`, file, removeOnStop, size: stat.size, mtime: stat.mtime, id, fmt };
+        return `http://${config.streamHost}:${config.httpPort}${_current.urlPath}`;
+    } catch (err) {
+        if (!keepInput) removeFile(input);
+        throw err;
+    }
 }
 
 // Stops serving the current stream, drops its open connections and deletes
-// its temp file.
+// its file if the stream server owns it.
 export async function stopStream() {
     const cur = _current;
     _current = null;
     for (const res of _streamResponses) res.destroy();
     _streamResponses.clear();
-    if (cur) removeFile(cur.file);
+    if (cur?.removeOnStop) removeFile(cur.file);
 }

@@ -103,7 +103,8 @@ export async function downloadAudio(url, { logger, signal, cache = false } = {})
 // yt-dlp's default `thumbnail` is often WebP (e.g. YouTube's vi_webp), which
 // Roon may not display, so prefer JPEG/PNG from the full list. yt-dlp sorts
 // `thumbnails` worst to best but doesn't check they exist (YouTube's
-// maxresdefault.jpg is missing for many videos), so try them best first.
+// maxresdefault.jpg is missing for many videos), so check them all at once
+// and take the best one that exists.
 async function pickThumbnail(info) {
     const isImage = (url) => {
         try {
@@ -113,11 +114,13 @@ async function pickThumbnail(info) {
         }
     };
     const candidates = (info.thumbnails || []).map((t) => t?.url).filter(isImage).reverse();
-    for (const url of candidates.slice(0, 5)) {
+    const exists = await Promise.all(candidates.slice(0, 5).map(async (url) => {
         try {
-            const res = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(5000) });
-            if (res.ok) return url;
-        } catch (e) { }
-    }
-    return info.thumbnail || null;
+            return (await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(2000) })).ok;
+        } catch (e) {
+            return false;
+        }
+    }));
+    const best = exists.indexOf(true);
+    return best >= 0 ? candidates[best] : info.thumbnail || null;
 }
