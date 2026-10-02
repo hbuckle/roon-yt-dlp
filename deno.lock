@@ -1,0 +1,41 @@
+{
+  "version": "5",
+  "specifiers": {
+    "npm:async-prompt@^1.0.1": "1.0.1",
+    "npm:ip@^1.1.9": "1.1.9",
+    "npm:node-uuid@1.4.8": "1.4.8",
+    "npm:ws@^8.22.0": "8.22.0"
+  },
+  "npm": {
+    "async-prompt@1.0.1": {
+      "integrity": "sha512-AdeC4NCuD0RxpbWm6pexY/AWMasHzMe+/zvdxdsAvpMmuz4in7N8OrKP7YzbRPYhUS+hibZNdUablgfE6Uj8UA==",
+      "dependencies": [
+        "keypress"
+      ]
+    },
+    "ip@1.1.9": {
+      "integrity": "sha512-cyRxvOEpNHNtchU3Ln9KC/auJgup87llfQpQ+t5ghoC/UhL16SWzbueiCsdTnWmqAWl7LadfuwhlqmtOaqMHdQ=="
+    },
+    "keypress@0.2.1": {
+      "integrity": "sha512-HjorDJFNhnM4SicvaUXac0X77NiskggxJdesG72+O5zBKpSqKFCrqmndKVqpu3pFqkla0St6uGk8Ju0sCurrmg=="
+    },
+    "node-uuid@1.4.8": {
+      "integrity": "sha512-TkCET/3rr9mUuRp+CpO7qfgT++aAxfDRaalQhwPFzI9BY/2rCDn6OfpZOVggi1AXfTPpfkTrg5f5WQx5G1uLxA==",
+      "deprecated": true,
+      "bin": true
+    },
+    "ws@8.22.0": {
+      "integrity": "sha512-Ydggc987+RO0AnWtZ/7Wq9FtNvcrL1b/RO0ud9mWjUPgDrsAAwQSF51sm2hm1XofbU/4jkpGEsLFsZZxU+1DOg=="
+    }
+  },
+  "workspace": {
+    "packageJson": {
+      "dependencies": [
+        "npm:async-prompt@^1.0.1",
+        "npm:ip@^1.1.9",
+        "npm:node-uuid@1.4.8",
+        "npm:ws@^8.22.0"
+      ]
+    }
+  }
+}

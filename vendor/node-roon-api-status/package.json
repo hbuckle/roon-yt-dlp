@@ -1,0 +1,9 @@
+{
+  "name": "node-roon-api-status",
+  "version": "1.0.0",
+  "type": "commonjs",
+  "description": "Roon Api Status Service (com.roonlabs.status:1)",
+  "main": "lib.js",
+  "author": "Roon Labs, LLC",
+  "license": "Apache-2.0"
+}

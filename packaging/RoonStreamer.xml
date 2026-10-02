@@ -1,0 +1,63 @@
+<!--
+  WinSW (https://github.com/winsw/winsw) service definition for Roon Streamer.
+  RoonStreamer.exe is WinSW-x64.exe renamed; it reads this file because the
+  names match. Re-run install.ps1 (or `RoonStreamer.exe restart`) after editing.
+-->
+<service>
+  <id>RoonStreamer</id>
+  <name>Roon Streamer</name>
+  <description>Roon extension that plays audio from YouTube and other sites (via yt-dlp) in a Roon zone.</description>
+
+  <!--
+    Built with `deno compile`, with its permissions fixed at build time: file
+    access only to C:\ProgramData\RoonStreamer, plus network, environment,
+    OS network info and subprocesses (ffmpeg/ffprobe/yt-dlp/taskkill).
+  -->
+  <executable>%BASE%\roon-streamer.exe</executable>
+
+  <!--
+    Pairing (config.json), settings.json and temp files live here. The exe can
+    only write to C:\ProgramData\RoonStreamer, so don't move this elsewhere.
+  -->
+  <workingdirectory>%ProgramData%\RoonStreamer</workingdirectory>
+
+  <!--
+    ffmpeg, ffprobe and yt-dlp are not included. By default they are found on
+    the system PATH. To use specific copies instead, uncomment and edit:
+  -->
+  <!--
+  <env name="FFMPEG_PATH" value="C:\Tools\ffmpeg\bin\ffmpeg.exe"/>
+  <env name="FFPROBE_PATH" value="C:\Tools\ffmpeg\bin\ffprobe.exe"/>
+  <env name="YTDLP_PATH" value="C:\Tools\yt-dlp\yt-dlp.exe"/>
+  -->
+
+  <!-- Port for the control page and the audio streams Roon fetches. -->
+  <!-- <env name="ROON_STREAMER_PORT" value="8081"/> -->
+
+  <!-- Download cache size limit in MB (default 2048); 0 turns caching off. -->
+  <!-- <env name="ROON_STREAMER_CACHE_MB" value="2048"/> -->
+
+  <startmode>Automatic</startmode>
+  <!-- Start after boot has settled, so the network and Roon Server are up. -->
+  <delayedAutoStart>true</delayedAutoStart>
+
+  <onfailure action="restart" delay="10 sec"/>
+  <onfailure action="restart" delay="30 sec"/>
+  <onfailure action="restart" delay="60 sec"/>
+  <resetfailure>1 hour</resetfailure>
+
+  <!-- WinSW sends Ctrl+C on stop; the service cleans up and exits. -->
+  <stoptimeout>15 sec</stoptimeout>
+
+  <logpath>%ProgramData%\RoonStreamer\logs</logpath>
+  <log mode="roll-by-size">
+    <sizeThreshold>10240</sizeThreshold>
+    <keepFiles>5</keepFiles>
+  </log>
+
+  <!--
+    Runs as LocalSystem by default. To use a less privileged account, add e.g.
+    <serviceaccount><username>NT AUTHORITY\LocalService</username></serviceaccount>
+    and give that account write access to %ProgramData%\RoonStreamer.
+  -->
+</service>
