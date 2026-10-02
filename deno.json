@@ -2,11 +2,11 @@
   "tasks": {
     "service": {
       "description": "Run the service entry point in the foreground, with the same permissions as the compiled service.",
-      "command": "deno run --allow-net --allow-env --allow-sys=networkInterfaces --allow-read=vendor,node_modules,$ProgramData/RoonStreamer --allow-write=$ProgramData/RoonStreamer --allow-run service.mjs"
+      "command": "deno run --allow-net --allow-env --allow-sys=networkInterfaces --allow-read=vendor,node_modules,logo.ico,$ProgramData/RoonStreamer --allow-write=$ProgramData/RoonStreamer --allow-run service.mjs"
     },
     "compile": {
       "description": "Build dist/roon-streamer.exe, the single-file service executable. Don't add --bundle: bundling renames the service constructors, and node-roon-api looks services up by constructor name, so pairing then crashes.",
-      "command": "deno compile --allow-net --allow-env --allow-sys=networkInterfaces --allow-read=$ProgramData/RoonStreamer --allow-write=$ProgramData/RoonStreamer --allow-run --include vendor --output dist/roon-streamer.exe service.mjs"
+      "command": "deno compile --allow-net --allow-env --allow-sys=networkInterfaces --allow-read=$ProgramData/RoonStreamer --allow-write=$ProgramData/RoonStreamer --allow-run --include vendor --include logo.ico --output dist/roon-streamer.exe service.mjs"
     },
     "package": {
       "description": "Build dist/RoonStreamer.zip for installing as a Windows service.",

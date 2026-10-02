@@ -5,18 +5,14 @@ import { downloadAudio } from './ytdlp.mjs';
 import * as cache from './cache.mjs';
 
 // Play/stop logic for the service's web page and API. Only one play runs at a
-// time: a new play or a stop cancels the one in
-// progress (killing yt-dlp if it is still downloading) and waits for it to
-// finish before going on.
-
-// Roon requires an icon for every session. Used when the media has no
-// thumbnail (e.g. local files) and init() wasn't given one.
-const DEFAULT_ICON = 'http://dev.roonlabs.com/public/puppy.png';
+// time: a new play or a stop cancels the one in progress (killing yt-dlp if it
+// is still downloading) and waits for it to finish before going on.
 
 let _log = (msg) => { };
-let _brand = { name: 'Roon Streamer', icon: DEFAULT_ICON };
+// Roon shows `icon` as the source's logo in every session; init() sets it.
+let _brand = { name: 'Roon Streamer', icon: null };
 
-let _status = { state: 'idle', title: null, error: null };
+let _status = { state: 'idle', title: null, artist: null, error: null };
 let _job = null;          // { abort: AbortController, done: Promise }
 
 export function init({ logger, name, icon } = {}) {
@@ -35,8 +31,8 @@ export function selectZone(zoneId) {
     re.selectZone(zoneId);
 }
 
-function setStatus(state, title = _status.title, error = null) {
-    _status = { state, title, error };
+function setStatus(state, title = _status.title, error = null, artist = _status.artist) {
+    _status = { state, title, artist, error };
 }
 
 async function cancelJob() {
@@ -65,11 +61,21 @@ async function run(title, work) {
                 await previous.done.catch(() => { });
             }
             if (abort.signal.aborted) return;
-            const { url, icon } = await work(abort.signal, (s, t) => setStatus(s, t));
+            setStatus('preparing', title, null, null);
+            // `image` (album art) is the media's thumbnail; `site` is e.g. Youtube
+            const { url, image, artist, site } = await work(abort.signal, (s, t) => setStatus(s, t));
             if (abort.signal.aborted) return;
             _log(`Playing "${_status.title}" from ${url}`);
-            re.play({ url, name: _brand.name, line1: _status.title, icon: icon || _brand.icon });
-            setStatus('playing');
+            re.play({
+                url,
+                name:  _brand.name,
+                icon:  _brand.icon,
+                image,
+                line1: _status.title,
+                line2: artist,
+                line3: site,
+            });
+            setStatus('playing', _status.title, null, artist || null);
         } catch (err) {
             if (abort.signal.aborted) return;
             setStatus('error', _status.title, err.message);
@@ -100,23 +106,27 @@ export function playUrl(url) {
             _log(`Cache hit: "${cached.title}"`);
             update('preparing', cached.title);
             return {
-                url:  await startStream({ input: cached.file, keepInput: true, logger: _log }),
-                icon: cached.thumbnail,
+                url:    await startStream({ input: cached.file, keepInput: true, logger: _log }),
+                image:  cached.thumbnail,
+                artist: cached.artist,
+                site:   cached.site,
             };
         }
 
         update('downloading', url);
         const useCache = cache.enabled();
         const download = await downloadAudio(url, { logger: _log, signal, cache: useCache });
-        if (useCache) cache.add(download.file, { url, title: download.title, thumbnail: download.thumbnail });
+        if (useCache) cache.add(download.file, { url, ...download });
         try {
             if (signal.aborted) throw new Error('cancelled');
             update('preparing', download.title);
             // Without the cache, the stream server owns the download and
             // deletes it when it's done with it.
             return {
-                url:  await startStream({ input: download.file, keepInput: useCache, logger: _log }),
-                icon: download.thumbnail,
+                url:    await startStream({ input: download.file, keepInput: useCache, logger: _log }),
+                image:  download.thumbnail,
+                artist: download.artist,
+                site:   download.site,
             };
         } catch (err) {
             // e.g. a codec that can't be streamed: no point keeping it
@@ -134,5 +144,5 @@ export async function stop() {
     await cancelJob();
     re.stop();
     await stopStream();
-    setStatus('idle', null);
+    setStatus('idle', null, null, null);
 }

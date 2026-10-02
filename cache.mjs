@@ -5,11 +5,11 @@ import { config } from './config.mjs';
 // Cache of yt-dlp downloads, so playing the same thing again skips the
 // download. Files live in config.cacheDir, named by yt-dlp as
 // <extractor>-<video id>.<ext>; index.json records each file's title,
-// thumbnail, the URLs it was requested by, and when it was last played. When
-// the files exceed config.cacheMaxMB, the least recently played are deleted.
+// artist, site, thumbnail, the URLs it was requested by, and when it was last
+// played. When the files exceed config.cacheMaxMB, the least recently played are deleted.
 
 const INDEX = 'index.json';
-let _index = null;      // { entries: { [fileName]: { title, thumbnail, size, lastUsed, urls } } }
+let _index = null;      // { entries: { [fileName]: { title, artist, site, thumbnail, size, lastUsed, urls } } }
 let _log = (msg) => { };
 
 export function enabled() {
@@ -76,7 +76,7 @@ function youtubeId(url) {
     return /^[A-Za-z0-9_-]{11}$/.test(id || '') ? id : null;
 }
 
-// Returns { file, title, thumbnail } for a URL that was cached before, and
+// Returns { file, title, artist, site, thumbnail } for a URL that was cached before, and
 // marks it as just used; otherwise null. A YouTube URL also finds the video
 // when it was cached under a different URL (e.g. youtu.be/... and
 // youtube.com/watch?v=...), from the file name yt-dlp gave it, so yt-dlp
@@ -99,17 +99,17 @@ export function lookup(url) {
     e.lastUsed = Date.now();
     if (!e.urls.includes(url)) e.urls.push(url);
     save();
-    return { file, title: e.title, thumbnail: e.thumbnail };
+    return { file, title: e.title, artist: e.artist || null, site: e.site || null, thumbnail: e.thumbnail };
 }
 
 // Records a download that yt-dlp wrote into the cache directory (or found
 // already there, when requested by a different URL).
-export function add(file, { url, title, thumbnail }) {
+export function add(file, { url, title, artist, site, thumbnail }) {
     const name = path.basename(file);
     const entries = index().entries;
     const e = entries[name] || { urls: [] };
     entries[name] = {
-        title, thumbnail,
+        title, artist, site, thumbnail,
         size: fs.statSync(file).size,
         lastUsed: Date.now(),
         urls: e.urls.includes(url) ? e.urls : [...e.urls, url],

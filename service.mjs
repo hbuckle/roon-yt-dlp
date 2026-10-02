@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import { config, prepareDirs, checkTools } from './config.mjs';
 import * as re from './lib.mjs';
 import * as controller from './controller.mjs';
@@ -11,6 +12,26 @@ import { CONTROL_PAGE } from './control-page.mjs';
 const logger = (msg) => {
     if (msg) process.stdout.write(`${new Date().toISOString()} ${msg}\n`);
 };
+
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+let logo = null;          // { path, type, data }
+
+// The extension's logo, which Roon shows as the source's icon, and which is
+// also the control page's favicon. logo.ico holds several sizes; Roon may not
+// decode ICO, so the largest PNG-encoded one is served as /logo.png.
+function loadLogo() {
+    const ico = fs.readFileSync(new URL('./logo.ico', import.meta.url));
+    let best = null;
+    for (let i = 0, count = ico.readUInt16LE(4); i < count; i++) {
+        const entry = 6 + i * 16;
+        const width = ico[entry] || 256;
+        const offset = ico.readUInt32LE(entry + 12);
+        const data = ico.subarray(offset, offset + ico.readUInt32LE(entry + 8));
+        if (data.subarray(0, 8).equals(PNG_SIGNATURE) && (!best || width > best.width)) best = { width, data };
+    }
+    return best ? { path: '/logo.png', type: 'image/png', data: best.data }
+                : { path: '/logo.ico', type: 'image/x-icon', data: ico };
+}
 
 function sendJson(res, code, body) {
     res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
@@ -73,6 +94,12 @@ async function routes(req, res) {
             sendJson(res, rejected[0], { error: rejected[1] });
             return true;
         }
+    }
+
+    if (req.method == 'GET' && logo && (url.pathname == logo.path || url.pathname == '/favicon.ico')) {
+        res.writeHead(200, { 'Content-Type': logo.type, 'Cache-Control': 'max-age=86400' });
+        res.end(logo.data);
+        return true;
     }
 
     if (req.method == 'GET' && url.pathname == '/') {
@@ -164,7 +191,16 @@ async function main() {
             email: 'h.buckle@outlook.com',
         },
     });
-    controller.init({ logger, name: 'Roon Connect yt-dlp' });
+    try {
+        logo = loadLogo();
+    } catch (err) {
+        logger(`WARNING: no logo for Roon to show: ${err.message}`);
+    }
+    controller.init({
+        logger,
+        name: 'Roon Connect yt-dlp',
+        icon: logo && `http://${config.streamHost}:${config.httpPort}${logo.path}`,
+    });
     await createServer({ port: config.httpPort, logger, routes });
     logger(`Control page: http://localhost:${config.httpPort}/`);
 

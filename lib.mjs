@@ -163,11 +163,19 @@ export function init({
 }
 
 
+// Plays `url` in the current zone. `icon` is the source's logo, `image` the
+// album art (Roon may show it only on remote displays, not in its own app),
+// and line1-3 the title, artist and anything else; empty lines are left out.
+// The fields are those of com.roonlabs.audioinput:1, which RoonLabs hasn't
+// documented; see https://gitlab.com/dottydingo/projects/roon/roon-api-java/-/blob/main/roon-api-documentation/audio_input_service.md
 export function play({
     url,
     name,
+    icon,
+    image,
     line1,
-    icon
+    line2,
+    line3,
 }) {
     if (!_v.core) {
         _log("ERROR: Your Roon are not paired to this extension");
@@ -195,6 +203,8 @@ export function play({
                     },
                 },
                     (msg, body) => { });
+                const lines = [line1, line2, line3].filter(Boolean);
+                const lineObj = (n) => Object.fromEntries(lines.slice(0, n).map((l, i) => [`line${i + 1}`, l]));
                 _v.core.services.RoonApiAudioInput.play({
                     session_id: body.session_id,
                     // type: "channel",
@@ -204,18 +214,20 @@ export function play({
                     info: {
                         is_seek_allowed: true,
                         is_pause_allowed: true,
-                        one_line: { line1 },
-                        two_line: { line1 },
-                        three_line: { line1 },
+                        ...(image ? { image_url: image } : {}),
+                        one_line: lineObj(1),
+                        two_line: lineObj(2),
+                        three_line: lineObj(3),
                     }
                 }, async (m, b) => {
-                    if (m.name == "Playing") {
+                    if (!m) return;     // connection to the Core lost
+                    if (m.name == "Playing" || m.name == 'Unpaused') {
                         _doevent("playing");
                     } else if (m.name == 'Time') {
                         // nothing
                     } else if (m.name == 'StoppedUser') {
                         _doevent("stopped");
-                    } else if (m.name == 'EndedNaturally' || m.name == 'MediaError') {
+                    } else if (m.name == 'EndedNaturally' || m.name == 'MediaError' || m.name == 'OnToNext' || m.name == 'Cleared') {
                         _doevent("stopped");
                     } else if (m.name == 'Paused') {
                         _doevent("stopped");

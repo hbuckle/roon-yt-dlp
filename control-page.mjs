@@ -41,6 +41,7 @@ export const CONTROL_PAGE = `<!doctype html>
   .status { margin-top: 20px; }
   .state { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
   .title { font-weight: 600; overflow-wrap: anywhere; }
+  .artist { color: var(--muted); overflow-wrap: anywhere; }
   .error { color: var(--error); overflow-wrap: anywhere; }
   .roon { margin-top: 14px; font-size: .9rem; color: var(--muted); }
 </style>
@@ -62,6 +63,7 @@ export const CONTROL_PAGE = `<!doctype html>
     <div class="status" aria-live="polite">
       <div class="state" id="state">-</div>
       <div class="title" id="title"></div>
+      <div class="artist" id="artist"></div>
       <div class="error" id="error"></div>
     </div>
     <div class="roon" id="roon"></div>
@@ -94,6 +96,7 @@ export const CONTROL_PAGE = `<!doctype html>
   function render(s) {
     $('state').textContent = LABELS[s.state] || s.state;
     $('title').textContent = s.title || '';
+    $('artist').textContent = s.artist || '';
     $('error').textContent = s.error || '';
     $('roon').textContent = s.roon.paired ? '' : 'Not paired: enable the extension in Roon > Settings > Extensions.';
     renderZones(s.roon);

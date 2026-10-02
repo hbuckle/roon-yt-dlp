@@ -21,8 +21,9 @@ function removeMatching(dir, test) {
 }
 
 // Downloads the audio-only stream for `url` with yt-dlp, without converting
-// it, and returns the downloaded file path and the media title. Only AAC is
-// accepted: Roon can't play Opus, which is the other common audio-only format.
+// it, and returns the downloaded file path and the media's title, artist
+// (channel), site and thumbnail. Only AAC is accepted: Roon can't play Opus,
+// which is the other common audio-only format.
 // Aborting `signal` kills yt-dlp and removes any partial download.
 //
 // With `cache`, the file goes in config.cacheDir named by site and video ID,
@@ -48,7 +49,7 @@ export async function downloadAudio(url, { logger, signal, cache = false } = {})
         '--no-simulate',
         '--encoding', 'utf-8',
         // one line of JSON, so titles can't be confused with other output
-        '--print', 'after_move:%(.{title,thumbnail,thumbnails,filepath})j',
+        '--print', 'after_move:%(.{title,thumbnail,thumbnails,filepath,channel,uploader,extractor_key})j',
     ];
     if (config.ffmpegPath != 'ffmpeg') args.push('--ffmpeg-location', config.ffmpegPath);
     args.push('--', url);
@@ -95,9 +96,11 @@ export async function downloadAudio(url, { logger, signal, cache = false } = {})
         throw new Error('yt-dlp finished but no downloaded file was found');
     }
     const title = info.title || url;
+    const artist = info.channel || info.uploader || null;
+    const site = info.extractor_key || null;
     const thumbnail = await pickThumbnail(info);
-    log(`yt-dlp: downloaded "${title}" to ${file}${thumbnail ? `, thumbnail ${thumbnail}` : ''}`);
-    return { file, title, thumbnail };
+    log(`yt-dlp: downloaded "${title}"${artist ? ` by ${artist}` : ''} to ${file}${thumbnail ? `, thumbnail ${thumbnail}` : ''}`);
+    return { file, title, artist, site, thumbnail };
 }
 
 // yt-dlp's default `thumbnail` is often WebP (e.g. YouTube's vi_webp), which
